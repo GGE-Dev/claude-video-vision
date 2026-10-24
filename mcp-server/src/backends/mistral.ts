@@ -7,16 +7,23 @@ export const MISTRAL_DEFAULT_MODEL = "voxtral-mini-latest";
 export const MISTRAL_MAX_CONTEXT_BIAS = 100;
 
 /**
- * Parses MISTRAL_CONTEXT_BIAS (comma-separated) into the list Mistral's
- * `context_bias` parameter expects: trimmed, non-empty, at most 100 terms.
+ * Parses MISTRAL_CONTEXT_BIAS into the list Mistral's `context_bias`
+ * parameter accepts. The API rejects any item containing whitespace or a
+ * comma (error 3051), so multi-word entries such as "Costing IT" are split
+ * into single words. Items are de-duplicated and capped at 100.
  */
 export function parseContextBias(raw: string | undefined): string[] {
   if (!raw) return [];
-  return raw
-    .split(",")
-    .map((term) => term.trim())
-    .filter((term) => term.length > 0)
-    .slice(0, MISTRAL_MAX_CONTEXT_BIAS);
+  const seen = new Set<string>();
+  const terms: string[] = [];
+  for (const term of raw.split(/[,\s]+/)) {
+    const clean = term.trim();
+    if (clean.length === 0 || seen.has(clean)) continue;
+    seen.add(clean);
+    terms.push(clean);
+    if (terms.length === MISTRAL_MAX_CONTEXT_BIAS) break;
+  }
+  return terms;
 }
 
 /**

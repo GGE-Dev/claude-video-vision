@@ -104,6 +104,12 @@ describe("transcribeWithMistral", () => {
     expect(formEntries(fetchCalls[1]).map(([k]) => k)).not.toContain("context_bias[]");
   });
 
+  it("splits multi-word terms into single words (Mistral rejects whitespace) and dedupes", () => {
+    expect(parseContextBias("Costing IT,SAP PCM,Shadow IT, IT ,Anaplan")).toEqual([
+      "Costing", "IT", "SAP", "PCM", "Shadow", "Anaplan",
+    ]);
+  });
+
   it("caps context_bias at 100 terms", () => {
     const raw = Array.from({ length: 120 }, (_, i) => `t${i}`).join(",");
     expect(parseContextBias(raw)).toHaveLength(100);
