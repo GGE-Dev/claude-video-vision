@@ -6,7 +6,7 @@
 
 Give Claude the ability to **watch and understand videos**.
 
-A Claude Code plugin that extracts frames via ffmpeg and processes audio via multiple backends (Gemini API, local Whisper, or OpenAI API). Claude receives frames as images and audio transcription with timestamps — the plugin is a **perception layer**, not an interpretation layer.
+A Claude Code plugin that extracts frames via ffmpeg and processes audio via multiple backends (Gemini API, local Whisper, OpenAI API, or Mistral Voxtral). Claude receives frames as images and audio transcription with timestamps — the plugin is a **perception layer**, not an interpretation layer.
 
 ## Features
 
@@ -84,6 +84,7 @@ Claude adapts parameters automatically:
 | **Gemini API** | Native (speech + non-speech events) | Free tier: 1500 req/day | `GEMINI_API_KEY` env var |
 | **Local (Whisper)** | `whisper.cpp` or Python `openai-whisper` | Free, fully offline | `brew install whisper-cpp` + auto model download |
 | **OpenAI API** | OpenAI Whisper API | Paid per usage | `OPENAI_API_KEY` env var |
+| **Mistral (Voxtral)** | Mistral `voxtral-mini-latest` (EU-hosted) | Paid per usage, free tier available | `MISTRAL_API_KEY` env var |
 
 **All backends** extract video frames via ffmpeg — Claude always has direct visual access.
 
@@ -128,6 +129,7 @@ Claude adapts parameters automatically:
   - Gemini API: free API key from [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key)
   - Local: `brew install whisper-cpp` (macOS) or equivalent
   - OpenAI: API key from OpenAI
+  - Mistral: API key from [console.mistral.ai](https://console.mistral.ai/api-keys); optional `MISTRAL_TRANSCRIPTION_MODEL` to override `voxtral-mini-latest`
 
 ## MCP Tools
 

@@ -18,6 +18,8 @@ Ask the user:
 >
 > **c) OpenAI Whisper API** — Good quality. Requires OPENAI_API_KEY. Paid per usage.
 >
+> **d) Mistral (Voxtral)** — Good quality, EU-hosted (GDPR). Transcribes with `voxtral-mini-latest`. Requires MISTRAL_API_KEY (console.mistral.ai). Paid per usage, with a free tier.
+>
 > All backends use ffmpeg to extract video frames — Claude sees the frames directly.
 
 After the user answers, call `video_configure` with the chosen `backend`.

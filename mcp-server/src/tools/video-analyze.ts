@@ -15,6 +15,7 @@ import { extractAudio } from "../extractors/audio.js";
 import { analyzeWithGeminiApi } from "../backends/gemini-api.js";
 import { transcribeWithWhisper } from "../backends/local.js";
 import { transcribeWithOpenAI } from "../backends/openai.js";
+import { transcribeWithMistral } from "../backends/mistral.js";
 import {
   buildAnalysisCommand,
   DEFAULT_SCDET_THRESHOLD,
@@ -231,6 +232,10 @@ export function registerVideoAnalyze(server: McpServer): void {
             const audioDir = join(workDir, "audio");
             const wavPath = await extractAudio(safePath, audioDir, {});
             audioResult = await transcribeWithOpenAI(wavPath);
+          } else if (config.backend === "mistral") {
+            const audioDir = join(workDir, "audio");
+            const wavPath = await extractAudio(safePath, audioDir, {});
+            audioResult = await transcribeWithMistral(wavPath);
           } else if (config.backend === "local") {
             const audioDir = join(workDir, "audio");
             const modelDir = join(homedir(), ".claude-video-vision", "models");
