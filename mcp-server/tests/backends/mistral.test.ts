@@ -1,43 +1,41 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Capture the OpenAI client construction and the transcription request so we
-// can assert the Mistral backend points the SDK at Mistral's base URL and
-// sends a Voxtral-compatible payload (no `language`, no `response_format`).
-const ctorArgs: any[] = [];
-const createArgs: any[] = [];
+// Capture the HTTP request the Mistral backend makes so we can assert the
+// endpoint, auth header and multipart encoding (repeated plain fields for
+// lists, no `language`, no `response_format`).
+const fetchCalls: Array<{ url: string; init: RequestInit }> = [];
 let fakeResponse: any = {};
-
-vi.mock("openai", () => ({
-  default: class FakeOpenAI {
-    audio = {
-      transcriptions: {
-        create: async (params: any) => {
-          createArgs.push(params);
-          return fakeResponse;
-        },
-      },
-    };
-    constructor(opts: any) {
-      ctorArgs.push(opts);
-    }
-  },
-}));
+let fakeStatus = 200;
 
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("fs")>("fs");
   return { ...actual, readFileSync: () => Buffer.from("RIFF") };
 });
 
-import { transcribeWithMistral, MISTRAL_BASE_URL, MISTRAL_DEFAULT_MODEL } from "../../src/backends/mistral.js";
+import {
+  transcribeWithMistral,
+  parseContextBias,
+  buildMistralForm,
+  MISTRAL_BASE_URL,
+  MISTRAL_DEFAULT_MODEL,
+} from "../../src/backends/mistral.js";
+
+function formEntries(call: { init: RequestInit }): Array<[string, string]> {
+  const form = call.init.body as FormData;
+  return [...form.entries()]
+    .filter(([, v]) => typeof v === "string")
+    .map(([k, v]) => [k, v as string]);
+}
 
 describe("transcribeWithMistral", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    ctorArgs.length = 0;
-    createArgs.length = 0;
+    fetchCalls.length = 0;
+    fakeStatus = 200;
     process.env.MISTRAL_API_KEY = "test-key";
     delete process.env.MISTRAL_TRANSCRIPTION_MODEL;
+    delete process.env.MISTRAL_CONTEXT_BIAS;
     fakeResponse = {
       text: "bonjour le monde",
       segments: [
@@ -45,37 +43,73 @@ describe("transcribeWithMistral", () => {
         { start: 1.5, end: 3.2, text: "le monde" },
       ],
     };
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      fetchCalls.push({ url, init });
+      return {
+        ok: fakeStatus >= 200 && fakeStatus < 300,
+        status: fakeStatus,
+        statusText: fakeStatus === 200 ? "OK" : "Unprocessable Entity",
+        json: async () => fakeResponse,
+        text: async () => JSON.stringify(fakeResponse),
+      };
+    });
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     process.env = { ...originalEnv };
   });
 
   it("throws a clear error when MISTRAL_API_KEY is missing", async () => {
     delete process.env.MISTRAL_API_KEY;
     await expect(transcribeWithMistral("/tmp/x.wav")).rejects.toThrow(/MISTRAL_API_KEY/);
+    expect(fetchCalls).toHaveLength(0);
   });
 
-  it("points the OpenAI SDK at Mistral's base URL", async () => {
+  it("posts to Mistral's transcription endpoint with a bearer token", async () => {
     await transcribeWithMistral("/tmp/x.wav");
-    expect(ctorArgs[0]).toMatchObject({ apiKey: "test-key", baseURL: MISTRAL_BASE_URL });
+    expect(fetchCalls[0].url).toBe(`${MISTRAL_BASE_URL}/audio/transcriptions`);
+    expect(fetchCalls[0].init.method).toBe("POST");
+    expect((fetchCalls[0].init.headers as any).Authorization).toBe("Bearer test-key");
   });
 
   it("uses voxtral-mini-latest by default and honours the model override", async () => {
     await transcribeWithMistral("/tmp/x.wav");
-    expect(createArgs[0].model).toBe(MISTRAL_DEFAULT_MODEL);
+    expect(formEntries(fetchCalls[0])).toContainEqual(["model", MISTRAL_DEFAULT_MODEL]);
 
     process.env.MISTRAL_TRANSCRIPTION_MODEL = "voxtral-custom";
     await transcribeWithMistral("/tmp/x.wav");
-    expect(createArgs[1].model).toBe("voxtral-custom");
+    expect(formEntries(fetchCalls[1])).toContainEqual(["model", "voxtral-custom"]);
   });
 
   it("requests segment timestamps and omits params Mistral rejects", async () => {
     await transcribeWithMistral("/tmp/x.wav");
-    const params = createArgs[0];
-    expect(params.timestamp_granularities).toEqual(["segment"]);
-    expect(params).not.toHaveProperty("language");
-    expect(params).not.toHaveProperty("response_format");
+    const entries = formEntries(fetchCalls[0]);
+    const keys = entries.map(([k]) => k);
+    expect(entries).toContainEqual(["timestamp_granularities", "segment"]);
+    expect(keys).not.toContain("timestamp_granularities[]");
+    expect(keys).not.toContain("language");
+    expect(keys).not.toContain("response_format");
+    expect((fetchCalls[0].init.body as FormData).get("file")).toBeInstanceOf(Blob);
+  });
+
+  it("sends context_bias as repeated plain fields only when configured", async () => {
+    await transcribeWithMistral("/tmp/x.wav");
+    expect(formEntries(fetchCalls[0]).map(([k]) => k)).not.toContain("context_bias");
+
+    process.env.MISTRAL_CONTEXT_BIAS = "Anaplan, CIGREF ,AFAI,, OCDE";
+    await transcribeWithMistral("/tmp/x.wav");
+    const bias = formEntries(fetchCalls[1]).filter(([k]) => k === "context_bias").map(([, v]) => v);
+    expect(bias).toEqual(["Anaplan", "CIGREF", "AFAI", "OCDE"]);
+    expect(formEntries(fetchCalls[1]).map(([k]) => k)).not.toContain("context_bias[]");
+  });
+
+  it("caps context_bias at 100 terms", () => {
+    const raw = Array.from({ length: 120 }, (_, i) => `t${i}`).join(",");
+    expect(parseContextBias(raw)).toHaveLength(100);
+    expect(parseContextBias(undefined)).toEqual([]);
+    const form = buildMistralForm({ audio: new Blob(["x"]), model: "m", contextBias: parseContextBias(raw) });
+    expect(form.getAll("context_bias")).toHaveLength(100);
   });
 
   it("maps segments to HH:MM:SS transcription entries", async () => {
@@ -94,5 +128,11 @@ describe("transcribeWithMistral", () => {
     const result = await transcribeWithMistral("/tmp/x.wav");
     expect(result.transcription).toHaveLength(1);
     expect(result.transcription[0].text).toBe("juste du texte");
+  });
+
+  it("surfaces HTTP errors with status and body", async () => {
+    fakeStatus = 422;
+    fakeResponse = { detail: "invalid context_bias" };
+    await expect(transcribeWithMistral("/tmp/x.wav")).rejects.toThrow(/422.*invalid context_bias/);
   });
 });

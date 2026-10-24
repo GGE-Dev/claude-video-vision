@@ -129,7 +129,7 @@ Claude adapts parameters automatically:
   - Gemini API: free API key from [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key)
   - Local: `brew install whisper-cpp` (macOS) or equivalent
   - OpenAI: API key from OpenAI
-  - Mistral: API key from [console.mistral.ai](https://console.mistral.ai/api-keys); optional `MISTRAL_TRANSCRIPTION_MODEL` to override `voxtral-mini-latest`
+  - Mistral: API key from [console.mistral.ai](https://console.mistral.ai/api-keys); optional `MISTRAL_CONTEXT_BIAS` (comma-separated, up to 100 terms) to bias recognition toward domain vocabulary, e.g. product or organisation names; optional `MISTRAL_TRANSCRIPTION_MODEL` to override `voxtral-mini-latest`
 
 ## MCP Tools
 

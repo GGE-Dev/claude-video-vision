@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Mistral (Voxtral) audio backend.** New `backend: "mistral"` transcribes audio with `voxtral-mini-latest` through Mistral's OpenAI-compatible `audio/transcriptions` endpoint (EU-hosted). Requires `MISTRAL_API_KEY`; `MISTRAL_TRANSCRIPTION_MODEL` overrides the model. Exposed in `video_setup`, `video_configure` and the `/setup-video-vision` wizard.
+- **Mistral (Voxtral) audio backend.** New `backend: "mistral"` transcribes audio with `voxtral-mini-latest` through Mistral's OpenAI-compatible `audio/transcriptions` endpoint (EU-hosted). Requires `MISTRAL_API_KEY`; `MISTRAL_TRANSCRIPTION_MODEL` overrides the model. Exposed in `video_setup`, `video_configure` and the `/setup-video-vision` wizard. `MISTRAL_CONTEXT_BIAS` (comma-separated) passes Mistral's `context_bias` vocabulary hints.
 
 ## [1.4.0] - 2026-10-05
 
