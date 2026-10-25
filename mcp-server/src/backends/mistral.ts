@@ -1,29 +1,22 @@
 import { readFileSync } from "fs";
 import type { AudioResult, TranscriptionSegment } from "../types.js";
 import { formatHMS } from "../utils/timestamps.js";
+import { normalizeVocabulary, MAX_VOCABULARY_TERMS } from "../utils/vocabulary.js";
 
 export const MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
 export const MISTRAL_DEFAULT_MODEL = "voxtral-mini-latest";
-export const MISTRAL_MAX_CONTEXT_BIAS = 100;
+export const MISTRAL_MAX_CONTEXT_BIAS = MAX_VOCABULARY_TERMS;
 
 /**
- * Parses MISTRAL_CONTEXT_BIAS into the list Mistral's `context_bias`
- * parameter accepts. The API rejects any item containing whitespace or a
- * comma (error 3051), so multi-word entries such as "Costing IT" are split
- * into single words. Items are de-duplicated and capped at 100.
+ * Parses a context-bias list for Mistral. The API rejects any item containing
+ * whitespace or a comma (error 3051), so multi-word entries such as
+ * "Costing IT" are split into single words. De-duplicated, capped at 100.
  */
-export function parseContextBias(raw: string | undefined): string[] {
-  if (!raw) return [];
-  const seen = new Set<string>();
-  const terms: string[] = [];
-  for (const term of raw.split(/[,\s]+/)) {
-    const clean = term.trim();
-    if (clean.length === 0 || seen.has(clean)) continue;
-    seen.add(clean);
-    terms.push(clean);
-    if (terms.length === MISTRAL_MAX_CONTEXT_BIAS) break;
-  }
-  return terms;
+export const parseContextBias = normalizeVocabulary;
+
+export interface MistralOptions {
+  /** Vocabulary hints (see config `vocabulary`). Falls back to MISTRAL_CONTEXT_BIAS. */
+  vocabulary?: string[];
 }
 
 /**
@@ -59,18 +52,20 @@ export function buildMistralForm(opts: {
  *     model the transcription endpoint accepts
  *   - `language` must NOT be sent alongside `timestamp_granularities`
  *     (Mistral rejects the combination), so we rely on auto-detection
- *   - `context_bias` (up to 100 words/phrases) nudges the model toward
- *     domain vocabulary such as product or organisation names; set
- *     MISTRAL_CONTEXT_BIAS to a comma-separated list to enable it
+ *   - `context_bias` (up to 100 single words) nudges the model toward
+ *     domain vocabulary such as product or organisation names; comes from
+ *     the `vocabulary` config setting, or MISTRAL_CONTEXT_BIAS as a fallback
  */
-export async function transcribeWithMistral(wavPath: string): Promise<AudioResult> {
+export async function transcribeWithMistral(wavPath: string, options: MistralOptions = {}): Promise<AudioResult> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
     throw new Error("MISTRAL_API_KEY environment variable is not set. Run video_setup to configure.");
   }
 
   const model = process.env.MISTRAL_TRANSCRIPTION_MODEL || MISTRAL_DEFAULT_MODEL;
-  const contextBias = parseContextBias(process.env.MISTRAL_CONTEXT_BIAS);
+  const contextBias = options.vocabulary && options.vocabulary.length > 0
+    ? normalizeVocabulary(options.vocabulary)
+    : parseContextBias(process.env.MISTRAL_CONTEXT_BIAS);
 
   const form = buildMistralForm({
     audio: new Blob([readFileSync(wavPath)], { type: "audio/wav" }),

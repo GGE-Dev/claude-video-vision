@@ -49,6 +49,7 @@ You choose one of three backends during `/setup-video-vision`. Each has differen
 - Uses your `MISTRAL_API_KEY` environment variable.
 - Data handling is governed by [Mistral's privacy policy](https://mistral.ai/terms#privacy-policy).
 - The plugin does not log, store, or transmit your API key anywhere other than the Mistral API itself.
+- If you set a `vocabulary` (see README), that word list is sent to Mistral alongside the audio as `context_bias`.
 
 ## Local files
 

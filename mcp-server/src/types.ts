@@ -24,6 +24,9 @@ export interface Config {
   audio_chunk_trigger_seconds: number;
   audio_chunk_size_seconds: number;
   audio_chunk_overlap_seconds: number; // reserved: dedup post-processor TBD; default 0 = no overlap
+  /** Domain vocabulary (acronyms, product and people names) passed to the
+   *  speech recognizer: Mistral `context_bias`, whisper.cpp `--prompt`. */
+  vocabulary: string[];
 }
 
 export interface VideoMetadata {

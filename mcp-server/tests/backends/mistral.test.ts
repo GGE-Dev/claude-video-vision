@@ -110,6 +110,13 @@ describe("transcribeWithMistral", () => {
     ]);
   });
 
+  it("prefers the vocabulary option over the environment variable", async () => {
+    process.env.MISTRAL_CONTEXT_BIAS = "EnvTerm";
+    await transcribeWithMistral("/tmp/x.wav", { vocabulary: ["Costing IT", "Anaplan"] });
+    const bias = formEntries(fetchCalls[0]).filter(([k]) => k === "context_bias").map(([, v]) => v);
+    expect(bias).toEqual(["Costing", "IT", "Anaplan"]);
+  });
+
   it("caps context_bias at 100 terms", () => {
     const raw = Array.from({ length: 120 }, (_, i) => `t${i}`).join(",");
     expect(parseContextBias(raw)).toHaveLength(100);

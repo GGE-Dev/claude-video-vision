@@ -18,6 +18,8 @@ import { analyzeWithGeminiApi } from "../backends/gemini-api.js";
 import { transcribeWithWhisper } from "../backends/local.js";
 import { transcribeWithOpenAI } from "../backends/openai.js";
 import { transcribeWithMistral } from "../backends/mistral.js";
+import { resolveVocabulary } from "../utils/vocabulary.js";
+import { assertKnownBackend } from "../utils/backend-guard.js";
 import { parseHMS, shiftAudioResult } from "../utils/timestamps.js";
 import {
   buildCaptionAudioResult,
@@ -134,6 +136,7 @@ export function registerVideoWatch(server: McpServer): void {
     },
     async (params) => {
       const config = loadConfig(CONFIG_PATH);
+      const vocabulary = resolveVocabulary(config.vocabulary);
 
       const resolution = params.resolution || config.frame_resolution;
       const frameMode = params.frame_mode || config.frame_mode;
@@ -242,9 +245,8 @@ export function registerVideoWatch(server: McpServer): void {
           audioPromise = extractAudio(safePath, audioDir, {
             startTime: params.start_time,
             endTime: params.end_time,
-          }).then((wavPath) => transcribeWithMistral(wavPath));
-        } else {
-          // local
+          }).then((wavPath) => transcribeWithMistral(wavPath, { vocabulary }));
+        } else if (config.backend === "local") {
           const audioDir = join(workDir, "audio");
           const modelDir = join(homedir(), ".claude-video-vision", "models");
           audioPromise = extractAudio(safePath, audioDir, {
@@ -256,8 +258,12 @@ export function registerVideoWatch(server: McpServer): void {
               model: config.whisper_model,
               whisperAt: config.whisper_at,
               modelDir,
+              vocabulary,
             }),
           );
+        } else {
+          assertKnownBackend(config.backend);
+          audioPromise = Promise.resolve({ backend: "none", transcription: [], audio_tags: [], full_analysis: null });
         }
 
         let [frames, rawAudio] = await Promise.all([framesPromise, audioPromise]);

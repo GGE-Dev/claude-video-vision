@@ -129,7 +129,7 @@ Claude adapts parameters automatically:
   - Gemini API: free API key from [ai.google.dev](https://ai.google.dev/gemini-api/docs/api-key)
   - Local: `brew install whisper-cpp` (macOS) or equivalent
   - OpenAI: API key from OpenAI
-  - Mistral: API key from [console.mistral.ai](https://console.mistral.ai/api-keys); optional `MISTRAL_CONTEXT_BIAS` (comma- or space-separated single words, up to 100; Mistral rejects multi-word items so phrases are split into words) to bias recognition toward domain vocabulary, e.g. product or organisation names; optional `MISTRAL_TRANSCRIPTION_MODEL` to override `voxtral-mini-latest`
+  - Mistral: API key from [console.mistral.ai](https://console.mistral.ai/api-keys); see the `vocabulary` setting below for recognition hints (`MISTRAL_CONTEXT_BIAS` is still honoured as a fallback); optional `MISTRAL_TRANSCRIPTION_MODEL` to override `voxtral-mini-latest`
 
 ## MCP Tools
 
@@ -165,9 +165,12 @@ Settings are stored in `~/.claude-video-vision/config.json`:
   "frame_describer_model": "sonnet",
   "enable_index": false,
   "session_max_age_days": 7,
-  "downloads_max_age_days": 7
+  "downloads_max_age_days": 7,
+  "vocabulary": []
 }
 ```
+
+`vocabulary` is a list of single words (acronyms, product names, people's names, up to 100) that primes the speech recognizer: Mistral receives it as `context_bias`, whisper.cpp and openai-whisper as the initial prompt. Set it with `video_configure` (`vocabulary: ["CIGREF", "AFAI", "Anaplan"]` or a comma-separated string; multi-word entries are split). For a one-off run, the `CVV_VOCABULARY` environment variable overrides the config. The Gemini backend does not use it.
 
 `frame_format` can be `jpeg`, `png`, or `webp`. `jpeg` remains the default for backwards compatibility; `png` is useful for screen recordings where text and sharp UI edges should stay lossless.
 

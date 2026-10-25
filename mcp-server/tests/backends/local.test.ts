@@ -46,7 +46,7 @@ vi.mock("fs", async () => {
   };
 });
 
-import { transcribeWithWhisper } from "../../src/backends/local.js";
+import { transcribeWithWhisper, buildWhisperPrompt } from "../../src/backends/local.js";
 
 describe("transcribeWithWhisperPython arg construction", () => {
   beforeEach(() => {
@@ -67,6 +67,28 @@ describe("transcribeWithWhisperPython arg construction", () => {
     expect(command).toBe("whisper");
     expect(args).not.toContain("--language");
     expect(args).not.toContain("auto");
+  });
+
+  it("passes vocabulary as --initial_prompt only when provided", async () => {
+    await transcribeWithWhisper("/tmp/scratch/audio.wav", {
+      engine: "python", model: "small", whisperAt: false, modelDir: "",
+    });
+    expect(execFileCalls[0].args).not.toContain("--initial_prompt");
+
+    await transcribeWithWhisper("/tmp/scratch/audio.wav", {
+      engine: "python", model: "small", whisperAt: false, modelDir: "",
+      vocabulary: ["CIGREF", "AFAI", "Anaplan"],
+    });
+    const args = execFileCalls[1].args;
+    const i = args.indexOf("--initial_prompt");
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe("CIGREF, AFAI, Anaplan");
+  });
+
+  it("buildWhisperPrompt returns undefined for an empty vocabulary", () => {
+    expect(buildWhisperPrompt(undefined)).toBeUndefined();
+    expect(buildWhisperPrompt([])).toBeUndefined();
+    expect(buildWhisperPrompt(["OCDE"])).toBe("OCDE");
   });
 
   it("passes --output_dir set to dirname(wavPath)", async () => {

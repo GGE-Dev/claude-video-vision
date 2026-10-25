@@ -107,6 +107,14 @@ If descriptions mode:
 
 Call `video_configure` with `frame_describer_model`.
 
+## Step 3b: Vocabulary (only if backend is "local" or "mistral")
+
+Ask the user:
+
+> Do you often transcribe videos with specific acronyms, product names or people's names? If so, list them (single words, comma-separated), and the speech recognizer will be primed with them. Example: `CIGREF, AFAI, OCDE, Anaplan, Pascal`. Leave empty to skip; you can change it any time with `video_configure`.
+
+Call `video_configure` with `vocabulary` (array of words). Mention that the list is sent to Mistral as `context_bias`, or to whisper.cpp as an initial prompt, and that it is not used by the Gemini backend.
+
 ## Step 4: Dependency Check
 
 Tell the user:
