@@ -170,7 +170,7 @@ Settings are stored in `~/.claude-video-vision/config.json`:
 }
 ```
 
-`vocabulary` is a list of single words (acronyms, product names, people's names, up to 100) that primes the speech recognizer: Mistral receives it as `context_bias`, whisper.cpp and openai-whisper as the initial prompt. Set it with `video_configure` (`vocabulary: ["CIGREF", "AFAI", "Anaplan"]` or a comma-separated string; multi-word entries are split). For a one-off run, the `CVV_VOCABULARY` environment variable overrides the config. The Gemini backend does not use it.
+`vocabulary` is a list of single words (acronyms, product names, people's names, up to 100) sent to Mistral as `context_bias` to prime recognition. Set it with `video_configure` (`vocabulary: ["CIGREF", "AFAI", "Anaplan"]` or a comma-separated string; multi-word entries are split). For a one-off run, the `CVV_VOCABULARY` environment variable overrides the config. **Mistral only**: Gemini has no equivalent parameter, and Whisper's initial prompt was measured to degrade French output when fed a word list, so the local backend ignores the setting.
 
 `frame_format` can be `jpeg`, `png`, or `webp`. `jpeg` remains the default for backwards compatibility; `png` is useful for screen recordings where text and sharp UI edges should stay lossless.
 

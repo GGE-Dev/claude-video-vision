@@ -30,18 +30,16 @@ export interface WhisperOptions {
   model: WhisperModel;
   whisperAt: boolean;
   modelDir: string;
-  /** Domain vocabulary passed as an initial prompt to bias recognition. */
+  /**
+   * Accepted for API symmetry with the Mistral backend but currently unused.
+   * Whisper's only hook is the initial prompt, which is a fake "previous
+   * segment" the model continues rather than a lexical bias. Feeding it a
+   * comma-separated word list was measured to degrade French transcription
+   * (longer segments, new mishearings) while fixing almost none of the target
+   * acronyms, so no prompt is sent. A natural-sentence prompt may behave
+   * better and is left as future work.
+   */
   vocabulary?: string[];
-}
-
-/**
- * Whisper has no dedicated vocabulary parameter; the initial prompt is the
- * documented way to prime it with spelling of names and acronyms. A short
- * comma-separated list works best and stays well under the 224-token cap.
- */
-export function buildWhisperPrompt(vocabulary: string[] | undefined): string | undefined {
-  if (!vocabulary || vocabulary.length === 0) return undefined;
-  return vocabulary.join(", ");
 }
 
 export async function transcribeWithWhisper(
@@ -49,19 +47,17 @@ export async function transcribeWithWhisper(
   options: WhisperOptions,
 ): Promise<AudioResult> {
   const { engine, model, whisperAt, modelDir } = options;
-  const prompt = buildWhisperPrompt(options.vocabulary);
 
   if (engine === "cpp") {
-    return transcribeWithWhisperCpp(wavPath, model, modelDir, prompt);
+    return transcribeWithWhisperCpp(wavPath, model, modelDir);
   }
-  return transcribeWithWhisperPython(wavPath, model, whisperAt, prompt);
+  return transcribeWithWhisperPython(wavPath, model, whisperAt);
 }
 
 async function transcribeWithWhisperCpp(
   wavPath: string,
   model: string,
   modelDir: string,
-  prompt?: string,
 ): Promise<AudioResult> {
   const resolved = resolveModel(model as WhisperModel);
   const modelPath = `${modelDir}/ggml-${resolved}.bin`;
@@ -147,7 +143,6 @@ async function transcribeWithWhisperCpp(
       "--language", "auto",
       "--vad",
       "--vad-model", vadModelPath,
-      ...(prompt ? ["--prompt", prompt] : []),
     ],
     { timeout: 600_000, maxBuffer: 50 * 1024 * 1024 },
   );
@@ -191,7 +186,6 @@ async function transcribeWithWhisperPython(
   wavPath: string,
   model: string,
   whisperAt: boolean,
-  prompt?: string,
 ): Promise<AudioResult> {
   const command = whisperAt ? "whisper-at" : "whisper";
 
@@ -209,7 +203,6 @@ async function transcribeWithWhisperPython(
     "--model", model,
     "--output_format", "json",
     "--output_dir", outputDir,
-    ...(prompt ? ["--initial_prompt", prompt] : []),
   ], { timeout: 600_000, maxBuffer: 50 * 1024 * 1024 });
 
   // Best-effort cleanup of the on-disk JSON; we already have what we
